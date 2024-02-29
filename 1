@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract DecentralizedGovernance {
+    enum ProposalStatus { Pending, Approved, Rejected, Executed }
+
+    struct Proposal {
+        address proposer;
+        string description;
+        ProposalStatus status;
+        uint256 forVotes;
+        uint256 againstVotes;
+        mapping(address => bool) voters;
+    }
+
+    mapping(uint256 => Proposal) public proposals;
+    uint256 public proposalCount;
+
+    event ProposalSubmitted(uint256 indexed proposalId, address indexed proposer, string description);
+    event VoteCasted(uint256 indexed proposalId, address indexed voter, bool inFavor);
+    event ProposalExecuted(uint256 indexed proposalId);
+
+    function submitProposal(string memory _description) external {
+        proposalCount++;
+        proposals[proposalCount] = Proposal(msg.sender, _description, ProposalStatus.Pending, 0, 0);
+        emit ProposalSubmitted(proposalCount, msg.sender, _description);
+    }
+
+    function vote(uint256 _proposalId, bool _inFavor) external {
+        Proposal storage proposal = proposals[_proposalId];
+        require(proposal.status == ProposalStatus.Pending, "Proposal is not pending");
+        require(!proposal.voters[msg.sender], "Already voted");
+
+        if (_inFavor) {
+            proposal.forVotes++;
+        } else {
+            proposal.againstVotes++;
+        }
+        proposal.voters[msg.sender] = true;
+
+        emit VoteCasted(_proposalId, msg.sender, _inFavor);
+    }
+
+    function executeProposal(uint256 _proposalId) external {
+        Proposal storage proposal = proposals[_proposalId];
+        require(proposal.status == ProposalStatus.Pending, "Proposal is not pending");
+
+        // Check if the proposal has enough votes to be approved
+        if (proposal.forVotes > proposal.againstVotes) {
+            proposal.status = ProposalStatus.Approved;
+            // Execute the proposal (e.g., implement protocol upgrade or adjust parameters)
+            // (For simplicity, we emit an event here)
+            emit ProposalExecuted(_proposalId);
+        } else {
+            proposal.status = ProposalStatus.Rejected;
+        }
+    }
+}
